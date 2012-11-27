@@ -195,6 +195,7 @@ func (srv *Server) createAccessKey(w http.ResponseWriter, req *http.Request, req
 	}
 	key := iam.AccessKey{
 		Id:       fmt.Sprintf("%s%d", userName, len(srv.accessKeys)),
+		Secret:   "secret",
 		UserName: userName,
 		Status:   "Active",
 	}
