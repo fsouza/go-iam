@@ -4,6 +4,7 @@
 package iamtest
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"github.com/fsouza/go-iam"
@@ -22,13 +23,14 @@ type action struct {
 
 // Server implements an IAM simulator for use in tests.
 type Server struct {
-	reqId      int
-	url        string
-	listener   net.Listener
-	users      []iam.User
-	groups     []iam.Group
-	accessKeys []iam.AccessKey
-	mutex      sync.Mutex
+	reqId        int
+	url          string
+	listener     net.Listener
+	users        []iam.User
+	groups       []iam.Group
+	userPolicies []iam.UserPolicy
+	accessKeys   []iam.AccessKey
+	mutex        sync.Mutex
 }
 
 func NewServer() (*Server, error) {
@@ -316,6 +318,89 @@ func (srv *Server) deleteGroup(w http.ResponseWriter, req *http.Request, reqId s
 	return iam.SimpleResp{RequestId: reqId}, nil
 }
 
+func (srv *Server) putUserPolicy(w http.ResponseWriter, req *http.Request, reqId string) (interface{}, error) {
+	if err := srv.validate(req, []string{"UserName", "PolicyDocument", "PolicyName"}); err != nil {
+		return nil, err
+	}
+	var exists bool
+	policyName := req.FormValue("PolicyName")
+	userName := req.FormValue("UserName")
+	for _, policy := range srv.userPolicies {
+		if policyName == policy.Name && userName == policy.UserName {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		policy := iam.UserPolicy{
+			Name:     policyName,
+			UserName: userName,
+			Document: req.FormValue("PolicyDocument"),
+		}
+		var dumb interface{}
+		if err := json.Unmarshal([]byte(policy.Document), &dumb); err != nil {
+			return nil, &iam.Error{
+				StatusCode: 400,
+				Code:       "MalformedPolicyDocument",
+				Message:    "Malformed policy document",
+			}
+		}
+		srv.userPolicies = append(srv.userPolicies, policy)
+	}
+	return iam.SimpleResp{RequestId: reqId}, nil
+}
+
+func (srv *Server) deleteUserPolicy(w http.ResponseWriter, req *http.Request, reqId string) (interface{}, error) {
+	if err := srv.validate(req, []string{"UserName", "PolicyName"}); err != nil {
+		return nil, err
+	}
+	policyName := req.FormValue("PolicyName")
+	userName := req.FormValue("UserName")
+	index := -1
+	for i, policy := range srv.userPolicies {
+		if policyName == policy.Name && userName == policy.UserName {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return nil, &iam.Error{
+			StatusCode: 404,
+			Code:       "NoSuchEntity",
+			Message:    "No such user policy",
+		}
+	}
+	copy(srv.userPolicies[index:], srv.userPolicies[index+1:])
+	srv.userPolicies = srv.userPolicies[:len(srv.userPolicies)-1]
+	return iam.SimpleResp{RequestId: reqId}, nil
+}
+
+func (srv *Server) getUserPolicy(w http.ResponseWriter, req *http.Request, reqId string) (interface{}, error) {
+	if err := srv.validate(req, []string{"UserName", "PolicyName"}); err != nil {
+		return nil, err
+	}
+	policyName := req.FormValue("PolicyName")
+	userName := req.FormValue("UserName")
+	index := -1
+	for i, policy := range srv.userPolicies {
+		if policyName == policy.Name && userName == policy.UserName {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return nil, &iam.Error{
+			StatusCode: 404,
+			Code:       "NoSuchEntity",
+			Message:    "No such user policy",
+		}
+	}
+	return iam.GetUserPolicyResp{
+		Policy:    srv.userPolicies[index],
+		RequestId: reqId,
+	}, nil
+}
+
 // Validates the presence of required request parameters.
 func (srv *Server) validate(req *http.Request, required []string) error {
 	for _, r := range required {
@@ -331,13 +416,16 @@ func (srv *Server) validate(req *http.Request, required []string) error {
 }
 
 var actions = map[string]func(*Server, http.ResponseWriter, *http.Request, string) (interface{}, error){
-	"CreateUser":      (*Server).createUser,
-	"DeleteUser":      (*Server).deleteUser,
-	"GetUser":         (*Server).getUser,
-	"CreateAccessKey": (*Server).createAccessKey,
-	"DeleteAccessKey": (*Server).deleteAccessKey,
-	"ListAccessKeys":  (*Server).listAccessKeys,
-	"CreateGroup":     (*Server).createGroup,
-	"DeleteGroup":     (*Server).deleteGroup,
-	"ListGroups":      (*Server).listGroups,
+	"CreateUser":       (*Server).createUser,
+	"DeleteUser":       (*Server).deleteUser,
+	"GetUser":          (*Server).getUser,
+	"CreateAccessKey":  (*Server).createAccessKey,
+	"DeleteAccessKey":  (*Server).deleteAccessKey,
+	"ListAccessKeys":   (*Server).listAccessKeys,
+	"CreateGroup":      (*Server).createGroup,
+	"DeleteGroup":      (*Server).deleteGroup,
+	"ListGroups":       (*Server).listGroups,
+	"PutUserPolicy":    (*Server).putUserPolicy,
+	"DeleteUserPolicy": (*Server).deleteUserPolicy,
+	"GetUserPolicy":    (*Server).getUserPolicy,
 }
