@@ -96,6 +96,7 @@ func (s *ClientTests) TestCreateListAndDeleteAccessKey(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(listKeyResp.AccessKeys, HasLen, 1)
 	createKeyResp.AccessKey.Secret = "secret"
+	listKeyResp.AccessKeys[0].Secret = "secret"
 	c.Assert(listKeyResp.AccessKeys[0], DeepEquals, createKeyResp.AccessKey)
 	_, err = s.iam.DeleteAccessKey(createKeyResp.AccessKey.Id, createUserResp.User.Name)
 	c.Assert(err, IsNil)
@@ -141,11 +142,13 @@ func (s *ClientTests) TestCreateListAndDeleteGroup(c *C) {
 	c.Assert(cResp2.Group, DeepEquals, lResp.Groups[0])
 	lResp, err = s.iam.Groups("")
 	c.Assert(err, IsNil)
-	c.Assert(lResp.Groups, HasLen, 2)
+	c.Assert(len(lResp.Groups) >= 2, Equals, true)
 	if lResp.Groups[0].Name == cResp1.Group.Name {
-		c.Assert([]iam.Group{cResp1.Group, cResp2.Group}, DeepEquals, lResp.Groups)
+		c.Assert(cResp1.Group, DeepEquals, lResp.Groups[0])
+		c.Assert(cResp2.Group, DeepEquals, lResp.Groups[1])
 	} else {
-		c.Assert([]iam.Group{cResp2.Group, cResp1.Group}, DeepEquals, lResp.Groups)
+		c.Assert(cResp2.Group, DeepEquals, lResp.Groups[0])
+		c.Assert(cResp1.Group, DeepEquals, lResp.Groups[1])
 	}
 	_, err = s.iam.DeleteGroup("DevelopmentManagers")
 	c.Assert(err, IsNil)
