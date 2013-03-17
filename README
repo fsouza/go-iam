@@ -1,10 +1,5 @@
 go-iam
 
-This is a temporary fork of goamz, providing some support for Amazon IAM API.
+This was a temporary fork of goamz, providing some support for Amazon IAM API.
 
-All code present here use the same license as goamz, and is already proposed
-for merging:
-
-	* AccessKey management: https://codereview.appspot.com/6823060/
-	* Group management: https://codereview.appspot.com/6855104/
-	* UserPolicy management: https://codereview.appspot.com/6858081/
+Use goamz's IAM support: http://godoc.org/launchpad.net/goamz/iam.
