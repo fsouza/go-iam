@@ -2,4 +2,4 @@ go-iam
 
 This was a temporary fork of goamz, providing some support for Amazon IAM API.
 
-Use goamz's IAM support: http://godoc.org/launchpad.net/goamz/iam.
+Use goamz's IAM support: http://godoc.org/gopkg.in/amz.v2/iam.
